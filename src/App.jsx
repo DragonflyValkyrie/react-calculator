@@ -14,6 +14,14 @@ export const ACTIONS = {
 function reducer(state, { type, payload }) {
   switch (type) {
     case ACTIONS.ADD_DIGIT:
+      if (state.overwrite) {
+        return {
+          ...state,
+          currentOperand: payload.digit,
+          overwrite: false,
+        };
+      }
+
       if (payload.digit === "0" && state.currentOperand === "0") {
         return state;
       }
@@ -52,8 +60,49 @@ function reducer(state, { type, payload }) {
         operation: payload.operation,
         currentOperand: null,
       };
+
     case ACTIONS.CLEAR:
       return {};
+
+    case ACTIONS.EVALUATE:
+      if (
+        state.operation == null ||
+        state.currentOperand == null ||
+        state.previousOperand == null
+      ) {
+        return state;
+      }
+
+      return {
+        ...state,
+        overwrite: true,
+        previousOperand: null,
+        operation: null,
+        currentOperand: evaluate(state),
+      };
+
+    case ACTIONS.DELETE_DIGIT:
+      if (state.overwrite)
+        return {
+          ...state,
+          overwrite: false,
+          currentOperand: null,
+        };
+      if (state.currentOperand == null)
+        return {
+          state,
+        };
+      if (state.currentOperand.length === 1) {
+        return {
+          ...state,
+          currentOperand: null,
+        };
+      }
+
+      return {
+        ...state,
+        currentOperand: state.currentOperand.slice(0, -1),
+      };
   }
 }
 
@@ -78,6 +127,17 @@ function evaluate({ currentOperand, previousOperand, operation }) {
   return computation.toString();
 }
 
+const INTERGER_FORMATTER = new Intl.NumberFormat("en-us", {
+  maximumFractionDigits: 0,
+});
+
+function formatOperand(operand) {
+  if (operand == null) return;
+  const [interger, decimal] = operand.split(".");
+  if (decimal == null) return INTERGER_FORMATTER.format(interger);
+  return `${INTERGER_FORMATTER.format(interger)}.${decimal}`;
+}
+
 export default function App() {
   const [{ currentOperand, previousOperand, operation }, dispatch] = useReducer(
     reducer,
@@ -88,9 +148,9 @@ export default function App() {
     <div className="calculator-grid">
       <div className="output">
         <div className="previous-operand">
-          {previousOperand} {operation}
+          {formatOperand(previousOperand)} {operation}
         </div>
-        <div className="current-operand">{currentOperand}</div>
+        <div className="current-operand">{formatOperand(currentOperand)}</div>
       </div>
       <button
         className="span-two"
@@ -98,7 +158,9 @@ export default function App() {
       >
         AC
       </button>
-      <button>DEL</button>
+      <button onClick={() => dispatch({ type: ACTIONS.DELETE_DIGIT })}>
+        DEL
+      </button>
       <OperationButton operation={"/"} dispatch={dispatch}></OperationButton>
       <DigitButton digit={"1"} dispatch={dispatch}></DigitButton>
       <DigitButton digit={"2"} dispatch={dispatch}></DigitButton>
@@ -114,7 +176,12 @@ export default function App() {
       <OperationButton operation={"-"} dispatch={dispatch}></OperationButton>
       <DigitButton digit={"."} dispatch={dispatch}></DigitButton>
       <DigitButton digit={"0"} dispatch={dispatch}></DigitButton>
-      <button className="span-two">=</button>
+      <button
+        className="span-two"
+        onClick={() => dispatch({ type: ACTIONS.EVALUATE })}
+      >
+        =
+      </button>{" "}
     </div>
   );
 }
